@@ -1,0 +1,947 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>オンライン授業参加状況分析ツール</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 20px;
+            padding: 30px;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+            backdrop-filter: blur(10px);
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 40px;
+            padding: 20px;
+            background: linear-gradient(45deg, #4f46e5, #7c3aed);
+            border-radius: 15px;
+            color: white;
+        }
+
+        .header h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+            text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+        }
+
+        .header p {
+            font-size: 1.1em;
+            opacity: 0.9;
+        }
+
+        .upload-section {
+            background: #f8fafc;
+            border: 2px dashed #cbd5e1;
+            border-radius: 15px;
+            padding: 40px;
+            text-align: center;
+            margin-bottom: 30px;
+            transition: all 0.3s ease;
+        }
+
+        .upload-section:hover {
+            border-color: #4f46e5;
+            background: #f1f5f9;
+        }
+
+        .upload-button {
+            background: linear-gradient(45deg, #4f46e5, #7c3aed);
+            color: white;
+            border: none;
+            padding: 15px 30px;
+            border-radius: 10px;
+            font-size: 1.1em;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 15px rgba(79, 70, 229, 0.3);
+        }
+
+        .upload-button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(79, 70, 229, 0.4);
+        }
+
+        .settings-section {
+            background: #f8fafc;
+            border-radius: 15px;
+            padding: 25px;
+            margin-bottom: 30px;
+        }
+
+        .settings-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+        }
+
+        .setting-item {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .setting-item label {
+            font-weight: 600;
+            margin-bottom: 8px;
+            color: #374151;
+        }
+
+        .setting-item input, .setting-item select {
+            padding: 12px;
+            border: 2px solid #e5e7eb;
+            border-radius: 8px;
+            font-size: 1em;
+            transition: border-color 0.3s ease;
+        }
+
+        .setting-item input:focus, .setting-item select:focus {
+            outline: none;
+            border-color: #4f46e5;
+        }
+
+        .analyze-button {
+            background: linear-gradient(45deg, #059669, #10b981);
+            color: white;
+            border: none;
+            padding: 15px 40px;
+            border-radius: 10px;
+            font-size: 1.2em;
+            cursor: pointer;
+            width: 100%;
+            margin: 20px 0;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 15px rgba(5, 150, 105, 0.3);
+        }
+
+        .analyze-button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(5, 150, 105, 0.4);
+        }
+
+        .analyze-button:disabled {
+            background: #9ca3af;
+            cursor: not-allowed;
+            transform: none;
+            box-shadow: none;
+        }
+
+        .results-section {
+            margin-top: 30px;
+        }
+
+        .result-card {
+            background: white;
+            border-radius: 15px;
+            padding: 25px;
+            margin-bottom: 20px;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+            border-left: 5px solid #4f46e5;
+        }
+
+        .result-card h3 {
+            color: #1f2937;
+            margin-bottom: 15px;
+            font-size: 1.4em;
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+
+        .stat-item {
+            background: linear-gradient(45deg, #f3f4f6, #e5e7eb);
+            padding: 15px;
+            border-radius: 10px;
+            text-align: center;
+        }
+
+        .stat-value {
+            font-size: 2em;
+            font-weight: bold;
+            color: #4f46e5;
+        }
+
+        .stat-label {
+            color: #6b7280;
+            font-size: 0.9em;
+            margin-top: 5px;
+        }
+
+        .student-list {
+            max-height: 400px;
+            overflow-y: auto;
+            border: 1px solid #e5e7eb;
+            border-radius: 10px;
+            padding: 15px;
+        }
+
+        .student-item {
+            padding: 10px;
+            border-bottom: 1px solid #f3f4f6;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .student-item:last-child {
+            border-bottom: none;
+        }
+
+        .student-name {
+            font-weight: 600;
+            color: #1f2937;
+        }
+
+        .student-details {
+            font-size: 0.9em;
+            color: #6b7280;
+        }
+
+        .warning {
+            background: #fef2f2;
+            color: #dc2626;
+            padding: 15px;
+            border-radius: 10px;
+            border-left: 5px solid #dc2626;
+            margin: 10px 0;
+        }
+
+        .success {
+            background: #f0fdf4;
+            color: #059669;
+            padding: 15px;
+            border-radius: 10px;
+            border-left: 5px solid #059669;
+            margin: 10px 0;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 20px;
+            color: #6b7280;
+        }
+
+        .spinner {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid #f3f4f6;
+            border-radius: 50%;
+            border-top-color: #4f46e5;
+            animation: spin 1s ease-in-out infinite;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        .export-buttons {
+            display: flex;
+            gap: 10px;
+            margin-top: 20px;
+        }
+
+        .export-button {
+            background: #6366f1;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .export-button:hover {
+            background: #4f46e5;
+            transform: translateY(-1px);
+        }
+
+        .chart-container {
+            background: white;
+            border-radius: 15px;
+            padding: 25px;
+            margin-bottom: 20px;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+            border-left: 5px solid #4f46e5;
+            position: relative;
+            width: 100%;
+            height: 500px;
+        }
+
+        .chart-container canvas {
+            width: 100% !important;
+            height: 400px !important;
+            max-width: 100%;
+            display: block;
+        }
+
+        @media (max-width: 768px) {
+            .container {
+                padding: 20px;
+            }
+            
+            .header h1 {
+                font-size: 2em;
+            }
+            
+            .settings-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>📊 オンライン授業参加状況分析ツール</h1>
+            <p>Excelファイルをアップロードして、学生の参加状況を詳細に分析します</p>
+        </div>
+
+        <div class="upload-section">
+            <h3>📁 Excelファイルをアップロード</h3>
+            <p>参加者データのExcelファイル（.xlsx）を選択してください</p>
+            <br>
+            <input type="file" id="fileInput" accept=".xlsx,.xls" style="display: none;">
+            <button class="upload-button" onclick="document.getElementById('fileInput').click();">
+                ファイルを選択
+            </button>
+            <div id="fileName" style="margin-top: 15px; color: #6b7280;"></div>
+        </div>
+
+        <div class="settings-section">
+            <h3>⚙️ 分析設定</h3>
+            <div class="settings-grid">
+                <div class="setting-item">
+                    <label>授業開始時刻</label>
+                    <input type="time" id="classStart" value="16:20">
+                </div>
+                <div class="setting-item">
+                    <label>授業終了時刻</label>
+                    <input type="time" id="classEnd" value="17:50">
+                </div>
+                <div class="setting-item">
+                    <label>出席基準時間（分）</label>
+                    <input type="number" id="attendanceThreshold" value="75" min="1" max="200">
+                </div>
+                <div class="setting-item">
+                    <label>遅刻判定時刻（要フォロー基準）</label>
+                    <input type="time" id="lateThreshold" value="16:35">
+                </div>
+            </div>
+        </div>
+
+        <button class="analyze-button" id="analyzeButton" onclick="analyzeData()" disabled>
+            🔍 データを分析する
+        </button>
+
+        <div class="results-section" id="resultsSection" style="display: none;">
+            <!-- 分析結果がここに表示されます -->
+        </div>
+    </div>
+
+    <script>
+        let uploadedData = null;
+
+        document.getElementById('fileInput').addEventListener('change', function(e) {
+            const file = e.target.files[0];
+            if (file) {
+                document.getElementById('fileName').textContent = 'ファイル選択中: ' + file.name;
+                
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    try {
+                        const workbook = XLSX.read(e.target.result, { type: 'binary' });
+                        const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
+                        const data = XLSX.utils.sheet_to_json(firstSheet, { header: 1 });
+                        
+                        uploadedData = data;
+                        document.getElementById('analyzeButton').disabled = false;
+                        
+                        showMessage('ファイルが正常に読み込まれました', 'success');
+                    } catch (error) {
+                        showMessage('ファイルの読み込みに失敗しました: ' + error.message, 'error');
+                    }
+                };
+                reader.readAsBinaryString(file);
+            }
+        });
+
+        function normalizeStudentName(name) {
+            if (!name || name.includes('助手') || name.includes('マツオ') || name.includes('森岡')) {
+                return null;
+            }
+            return name.trim();
+        }
+
+        function extractStudentId(name) {
+            if (!name) return null;
+            
+            const patterns = [
+                /(\d{2}[A-Z]\d{3}-\d)/g,
+                /(\d{2}[A-Z]\d{2}-\d)/g,
+                /(\d{2}[A-Z]\d{4}-\d)/g
+            ];
+            
+            for (let pattern of patterns) {
+                const match = name.match(pattern);
+                if (match) {
+                    return match[0];
+                }
+            }
+            
+            return null;
+        }
+
+        function analyzeData() {
+            if (!uploadedData) {
+                showMessage('ファイルをアップロードしてください', 'error');
+                return;
+            }
+
+            showLoading();
+
+            const classStart = document.getElementById('classStart').value;
+            const classEnd = document.getElementById('classEnd').value;
+            const attendanceThreshold = parseInt(document.getElementById('attendanceThreshold').value);
+            const lateThreshold = document.getElementById('lateThreshold').value;
+
+            const today = new Date().toISOString().split('T')[0];
+            const classStartTime = new Date(today + 'T' + classStart + ':00');
+            const classEndTime = new Date(today + 'T' + classEnd + ':00');
+            const lateThresholdTime = new Date(today + 'T' + lateThreshold + ':00');
+
+            setTimeout(function() {
+                try {
+                    const participantData = uploadedData.slice(2);
+                    const analysis = performAnalysis(participantData, classStartTime, classEndTime, lateThresholdTime, attendanceThreshold);
+                    displayResults(analysis);
+                } catch (error) {
+                    showMessage('分析中にエラーが発生しました: ' + error.message, 'error');
+                    hideLoading();
+                }
+            }, 500);
+        }
+
+        function performAnalysis(participantData, classStart, classEnd, lateThreshold, attendanceThreshold) {
+            const studentSessions = {};
+
+            participantData.forEach(function(row) {
+                const originalName = row[0];
+                const studentId = extractStudentId(originalName);
+                const duration = parseInt(row[4]) || 0;
+                const joinTime = row[2];
+                const email = row[1] || 'なし';
+
+                if (studentId && duration > 0) {
+                    if (!studentSessions[studentId]) {
+                        studentSessions[studentId] = {
+                            sessions: [],
+                            totalDuration: 0,
+                            email: email,
+                            displayName: originalName,
+                            allNames: new Set()
+                        };
+                    }
+                    
+                    studentSessions[studentId].allNames.add(originalName);
+                    
+                    if (email && email !== 'なし' && email.trim() !== '') {
+                        studentSessions[studentId].email = email;
+                    }
+                    
+                    studentSessions[studentId].sessions.push({ joinTime: joinTime, duration: duration });
+                    studentSessions[studentId].totalDuration += duration;
+                }
+            });
+
+            const studentAnalysis = [];
+            Object.entries(studentSessions).forEach(function([studentId, data]) {
+                const sortedSessions = data.sessions.sort(function(a, b) {
+                    return new Date(a.joinTime) - new Date(b.joinTime);
+                });
+                const firstJoinTime = new Date(sortedSessions[0].joinTime);
+                
+                const isUnderThreshold = data.totalDuration < attendanceThreshold;
+                const isLateJoiner = firstJoinTime >= lateThreshold;
+                const needsFollowUp = isUnderThreshold || isLateJoiner;
+                
+                studentAnalysis.push({
+                    studentId: studentId,
+                    displayName: data.displayName,
+                    allNames: Array.from(data.allNames),
+                    email: data.email,
+                    totalDuration: data.totalDuration,
+                    sessionCount: data.sessions.length,
+                    firstJoinTime: sortedSessions[0].joinTime,
+                    firstJoinTimeObj: firstJoinTime,
+                    sessions: sortedSessions,
+                    meetsThreshold: data.totalDuration >= attendanceThreshold,
+                    hasMultipleSessions: data.sessions.length > 1,
+                    isLateJoiner: isLateJoiner,
+                    isUnderThreshold: isUnderThreshold,
+                    needsFollowUp: needsFollowUp
+                });
+            });
+
+            const totalStudents = studentAnalysis.length;
+            const attendingStudents = studentAnalysis.filter(function(s) { return s.meetsThreshold && !s.isLateJoiner; });
+            const followUpStudents = studentAnalysis.filter(function(s) { return s.needsFollowUp; });
+            const lateJoiners = studentAnalysis.filter(function(s) { return s.isLateJoiner; });
+            const underThresholdStudents = studentAnalysis.filter(function(s) { return s.isUnderThreshold; });
+            const multipleEntries = studentAnalysis.filter(function(s) { return s.hasMultipleSessions; });
+
+            const timeDistribution = {
+                '授業前(16:20前)': 0,
+                '開始直後(16:20-16:35)': 0,
+                '前半(16:35-17:00)': 0,
+                '中盤(17:00-17:30)': 0,
+                '後半(17:30-17:50)': 0,
+                '授業後(17:50後)': 0
+            };
+
+            studentAnalysis.forEach(function(student) {
+                const timeStr = student.firstJoinTime;
+                let time;
+                
+                if (timeStr.includes('PM') || timeStr.includes('AM')) {
+                    time = new Date(timeStr);
+                } else {
+                    time = new Date(timeStr);
+                }
+                
+                if (isNaN(time.getTime())) {
+                    console.log('Invalid time:', timeStr);
+                    return;
+                }
+                
+                const hour = time.getHours();
+                const minute = time.getMinutes();
+                
+                if (hour < 16 || (hour === 16 && minute < 20)) {
+                    timeDistribution['授業前(16:20前)']++;
+                } else if (hour === 16 && minute >= 20 && minute < 35) {
+                    timeDistribution['開始直後(16:20-16:35)']++;
+                } else if (hour === 16 && minute >= 35) {
+                    timeDistribution['前半(16:35-17:00)']++;
+                } else if (hour === 17 && minute < 30) {
+                    timeDistribution['中盤(17:00-17:30)']++;
+                } else if (hour === 17 && minute >= 30 && minute < 50) {
+                    timeDistribution['後半(17:30-17:50)']++;
+                } else if (hour === 17 && minute >= 50) {
+                    timeDistribution['授業後(17:50後)']++;
+                } else if (hour >= 18) {
+                    timeDistribution['授業後(17:50後)']++;
+                } else {
+                    console.log('Unclassified time:', hour + ':' + minute, timeStr);
+                    timeDistribution['中盤(17:00-17:30)']++;
+                }
+            });
+
+            const categories = {
+                '極短時間(1-5分)': [],
+                '短時間(6-15分)': [],
+                '中程度不足(16-45分)': [],
+                '若干不足(46-74分)': [],
+                '出席達成(75分以上)': []
+            };
+
+            studentAnalysis.forEach(function(student) {
+                const duration = student.totalDuration;
+                if (duration <= 5) categories['極短時間(1-5分)'].push(student);
+                else if (duration <= 15) categories['短時間(6-15分)'].push(student);
+                else if (duration <= 45) categories['中程度不足(16-45分)'].push(student);
+                else if (duration < attendanceThreshold) categories['若干不足(46-74分)'].push(student);
+                else categories['出席達成(75分以上)'].push(student);
+            });
+
+            const avgDuration = studentAnalysis.reduce(function(sum, s) { return sum + s.totalDuration; }, 0) / totalStudents;
+
+            return {
+                totalStudents: totalStudents,
+                attendingStudents: attendingStudents.length,
+                followUpStudents: followUpStudents.length,
+                lateJoiners: lateJoiners.length,
+                underThresholdStudents: underThresholdStudents.length,
+                multipleEntries: multipleEntries.length,
+                avgDuration: Math.round(avgDuration),
+                categories: categories,
+                timeDistribution: timeDistribution,
+                followUpList: followUpStudents.sort(function(a, b) { return a.totalDuration - b.totalDuration; }),
+                lateJoinersList: lateJoiners,
+                underThresholdList: underThresholdStudents.sort(function(a, b) { return a.totalDuration - b.totalDuration; }),
+                allStudents: studentAnalysis
+            };
+        }
+
+        function displayResults(analysis) {
+            const resultsSection = document.getElementById('resultsSection');
+            
+            let html = '';
+            html += '<div class="result-card">';
+            html += '<h3>📈 分析結果サマリー</h3>';
+            html += '<div class="success"><strong>フィルター条件:</strong> 学籍番号が名前に含まれている学生のみを分析対象としています</div>';
+            html += '<div class="stats-grid">';
+            html += '<div class="stat-item"><div class="stat-value">' + analysis.totalStudents + '</div><div class="stat-label">総学生数</div></div>';
+            html += '<div class="stat-item"><div class="stat-value">' + analysis.attendingStudents + '</div><div class="stat-label">出席達成 (' + Math.round(analysis.attendingStudents/analysis.totalStudents*100) + '%)</div></div>';
+            html += '<div class="stat-item"><div class="stat-value">' + analysis.followUpStudents + '</div><div class="stat-label">要フォロー (' + Math.round(analysis.followUpStudents/analysis.totalStudents*100) + '%)</div></div>';
+            html += '<div class="stat-item"><div class="stat-value">' + analysis.avgDuration + '分</div><div class="stat-label">平均参加時間</div></div>';
+            html += '<div class="stat-item"><div class="stat-value">' + analysis.multipleEntries + '</div><div class="stat-label">複数回入退室</div></div>';
+            html += '<div class="stat-item"><div class="stat-value">' + analysis.lateJoiners + '</div><div class="stat-label">遅刻入室(16:35以降)</div></div>';
+            html += '</div></div>';
+
+            html += '<div class="chart-container">';
+            html += '<h3>📊 初回入室時刻分布</h3>';
+            html += '<canvas id="timeDistributionChart"></canvas>';
+            html += '</div>';
+
+            html += '<div class="result-card">';
+            html += '<h3>⏰ 参加時間別分布</h3>';
+            html += '<div class="stats-grid">';
+            Object.entries(analysis.categories).forEach(function([category, students]) {
+                html += '<div class="stat-item"><div class="stat-value">' + students.length + '</div><div class="stat-label">' + category + '</div></div>';
+            });
+            html += '</div></div>';
+
+            html += '<div class="result-card">';
+            html += '<h3>⚠️ 要フォロー学生（75分未満 OR 16:35以降初回入室）</h3>';
+            html += '<div class="warning"><strong>要フォロー条件:</strong><br>・のべ在室時間が75分未満の学生<br>・16:35以降に初回入室した学生（授業開始15分後）</div>';
+            html += '<div class="student-list">';
+            analysis.followUpList.forEach(function(student, index) {
+                const reasons = [];
+                if (student.isUnderThreshold) reasons.push('時間不足');
+                if (student.isLateJoiner) reasons.push('遅刻入室');
+                
+                html += '<div class="student-item">';
+                html += '<div>';
+                html += '<div class="student-name">' + (index + 1) + '. ' + student.displayName + ' (' + student.studentId + ')</div>';
+                html += '<div class="student-details">';
+                html += 'メール: ' + student.email + '<br>';
+                html += '初回入室: ' + student.firstJoinTime + ' | のべ在室時間: ' + student.totalDuration + '分<br>';
+                html += '要フォロー理由: ' + reasons.join(', ');
+                if (student.allNames.length > 1) {
+                    html += '<br>使用した名前: ' + student.allNames.join(', ');
+                }
+                html += '</div></div></div>';
+            });
+            html += '</div></div>';
+
+            if (analysis.lateJoiners > 0) {
+                html += '<div class="result-card">';
+                html += '<h3>🕐 16:35以降初回入室学生（詳細）</h3>';
+                html += '<div class="student-list">';
+                analysis.lateJoinersList.forEach(function(student, index) {
+                    html += '<div class="student-item">';
+                    html += '<div>';
+                    html += '<div class="student-name">' + (index + 1) + '. ' + student.displayName + ' (' + student.studentId + ')</div>';
+                    html += '<div class="student-details">';
+                    html += 'メール: ' + student.email + '<br>';
+                    html += '初回入室: ' + student.firstJoinTime + ' | のべ在室時間: ' + student.totalDuration + '分 (' + student.sessionCount + '回入退室)';
+                    if (student.allNames.length > 1) {
+                        html += '<br>使用した名前: ' + student.allNames.join(', ');
+                    }
+                    html += '</div></div></div>';
+                });
+                html += '</div></div>';
+            }
+
+            html += '<div class="export-buttons">';
+            html += '<button class="export-button" onclick="exportToCSV()">📊 CSV出力</button>';
+            html += '<button class="export-button" onclick="generateReport()">📄 レポート生成</button>';
+            html += '</div>';
+
+            resultsSection.innerHTML = html;
+            resultsSection.style.display = 'block';
+            
+            window.currentAnalysis = analysis;
+            
+            setTimeout(function() {
+                const chartElement = document.getElementById('timeDistributionChart');
+                if (chartElement) {
+                    createTimeDistributionChart(analysis.timeDistribution);
+                } else {
+                    console.log('Chart element not found');
+                }
+            }, 200);
+            
+            hideLoading();
+            resultsSection.scrollIntoView({ behavior: 'smooth' });
+        }
+
+        function createTimeDistributionChart(timeDistribution) {
+            const ctx = document.getElementById('timeDistributionChart');
+            if (!ctx) {
+                console.log('Canvas element not found');
+                return;
+            }
+            
+            if (window.myChart) {
+                window.myChart.destroy();
+            }
+            
+            console.log('Chart data:', labels, data);
+            
+            window.myChart = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: '学生数',
+                        data: data,
+                        backgroundColor: [
+                            'rgba(245, 158, 11, 0.8)',
+                            'rgba(16, 185, 129, 0.8)',
+                            'rgba(59, 130, 246, 0.8)',
+                            'rgba(139, 92, 246, 0.8)',
+                            'rgba(239, 68, 68, 0.8)',
+                            'rgba(107, 114, 128, 0.8)'
+                        ],
+                        borderColor: [
+                            'rgba(245, 158, 11, 1)',
+                            'rgba(16, 185, 129, 1)',
+                            'rgba(59, 130, 246, 1)',
+                            'rgba(139, 92, 246, 1)',
+                            'rgba(239, 68, 68, 1)',
+                            'rgba(107, 114, 128, 1)'
+                        ],
+                        borderWidth: 2
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            display: true,
+                            position: 'top'
+                        },
+                        title: {
+                            display: true,
+                            text: '初回入室時刻別学生数分布（授業時間: 16:20-17:50）',
+                            font: {
+                                size: 18,
+                                weight: 'bold'
+                            },
+                            padding: 20
+                        },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    return '学生数: ' + context.parsed.y + '名';
+                                },
+                                afterLabel: function(context) {
+                                    const total = context.dataset.data.reduce(function(a, b) { return a + b; }, 0);
+                                    const percentage = Math.round((context.parsed.y / total) * 100);
+                                    return '割合: ' + percentage + '%';
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            ticks: {
+                                stepSize: 1,
+                                callback: function(value) {
+                                    return value + '名';
+                                }
+                            },
+                            title: {
+                                display: true,
+                                text: '学生数（名）',
+                                font: {
+                                    size: 14,
+                                    weight: 'bold'
+                                }
+                            }
+                        },
+                        x: {
+                            title: {
+                                display: true,
+                                text: '入室時刻帯',
+                                font: {
+                                    size: 14,
+                                    weight: 'bold'
+                                }
+                            },
+                            ticks: {
+                                maxRotation: 45,
+                                minRotation: 45,
+                                font: {
+                                    size: 11
+                                }
+                            }
+                        }
+                    },
+                    animation: {
+                        duration: 1500,
+                        easing: 'easeInOutCubic'
+                    },
+                    interaction: {
+                        intersect: false,
+                        mode: 'index'
+                    }
+                }
+            });
+        }
+
+        function exportToCSV() {
+            if (!window.currentAnalysis) {
+                showMessage('分析結果がありません。先にデータを分析してください。', 'error');
+                return;
+            }
+            const csvContent = generateCSVContent(window.currentAnalysis);
+            downloadFile(csvContent, 'attendance_analysis.csv', 'text/csv');
+        }
+
+        function generateReport() {
+            if (!window.currentAnalysis) {
+                showMessage('分析結果がありません。先にデータを分析してください。', 'error');
+                return;
+            }
+            const reportContent = generateReportContent(window.currentAnalysis);
+            downloadFile(reportContent, 'attendance_report.txt', 'text/plain');
+        }
+
+        function generateCSVContent(analysis) {
+            const headers = ['学籍番号', '表示名', 'メールアドレス', '初回入室時刻', 'のべ在室時間（分）', '入退室回数', '要フォロー理由', '使用した全ての名前'];
+            const rows = analysis.followUpList.map(function(student) {
+                const reasons = [];
+                if (student.isUnderThreshold) reasons.push('時間不足');
+                if (student.isLateJoiner) reasons.push('遅刻入室');
+                
+                return [
+                    student.studentId,
+                    student.displayName,
+                    student.email,
+                    student.firstJoinTime,
+                    student.totalDuration,
+                    student.sessionCount,
+                    reasons.join(', '),
+                    student.allNames.join(' / ')
+                ];
+            });
+
+            const csvData = [headers].concat(rows);
+            return csvData.map(function(row) {
+                return row.join(',');
+            }).join('\n');
+        }
+
+        function generateReportContent(analysis) {
+            const date = new Date().toLocaleDateString('ja-JP');
+            let report = 'オンライン授業参加状況分析レポート\n';
+            report += '生成日時: ' + date + '\n\n';
+            report += '【フィルター条件】\n';
+            report += '学籍番号が名前に含まれている学生のみを分析対象\n\n';
+            report += '【概要】\n';
+            report += '総学生数: ' + analysis.totalStudents + '名\n';
+            report += '出席達成: ' + analysis.attendingStudents + '名 (' + Math.round(analysis.attendingStudents/analysis.totalStudents*100) + '%)\n';
+            report += '要フォロー: ' + analysis.followUpStudents + '名 (' + Math.round(analysis.followUpStudents/analysis.totalStudents*100) + '%)\n';
+            report += '平均参加時間: ' + analysis.avgDuration + '分\n';
+            report += '複数回入退室: ' + analysis.multipleEntries + '名\n';
+            report += '遅刻入室(16:35以降): ' + analysis.lateJoiners + '名\n\n';
+            report += '【要フォロー条件】\n';
+            report += 'のべ在室時間75分未満\n';
+            report += '16:35以降初回入室（授業開始15分後）\n\n';
+            
+            report += '【参加時間別分布】\n';
+            Object.entries(analysis.categories).forEach(function([category, students]) {
+                report += category + ': ' + students.length + '名\n';
+            });
+            
+            report += '\n【初回入室時刻分布】\n';
+            Object.entries(analysis.timeDistribution).forEach(function([timeSlot, count]) {
+                report += timeSlot + ': ' + count + '名\n';
+            });
+            
+            report += '\n【要フォロー学生一覧】\n';
+            if (analysis.followUpList.length === 0) {
+                report += '該当学生なし\n';
+            } else {
+                analysis.followUpList.forEach(function(student, index) {
+                    const reasons = [];
+                    if (student.isUnderThreshold) reasons.push('時間不足');
+                    if (student.isLateJoiner) reasons.push('遅刻入室');
+                    report += (index + 1) + '. ' + student.displayName + ' (' + student.studentId + ')\n';
+                    report += '   メール: ' + student.email + '\n';
+                    report += '   初回入室: ' + student.firstJoinTime + ' | のべ在室時間: ' + student.totalDuration + '分\n';
+                    report += '   要フォロー理由: ' + reasons.join(', ') + '\n';
+                    if (student.allNames.length > 1) {
+                        report += '   使用した名前: ' + student.allNames.join(', ') + '\n';
+                    }
+                    report += '\n';
+                });
+            }
+            
+            return report;
+        }
+
+        function downloadFile(content, filename, contentType) {
+            try {
+                const blob = new Blob([content], { type: contentType + ';charset=utf-8;' });
+                const link = document.createElement('a');
+                const url = URL.createObjectURL(blob);
+                link.setAttribute('href', url);
+                link.setAttribute('download', filename);
+                link.style.visibility = 'hidden';
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+                URL.revokeObjectURL(url);
+                
+                showMessage(filename + 'をダウンロードしました', 'success');
+            } catch (error) {
+                showMessage('ファイルのダウンロードに失敗しました: ' + error.message, 'error');
+            }
+        }
+
+        function showMessage(message, type) {
+            const messageDiv = document.createElement('div');
+            messageDiv.className = type === 'success' ? 'success' : 'warning';
+            messageDiv.textContent = message;
+            
+            const container = document.querySelector('.container');
+            container.insertBefore(messageDiv, container.children[2]);
+            
+            setTimeout(function() {
+                if (messageDiv.parentNode) {
+                    messageDiv.parentNode.removeChild(messageDiv);
+                }
+            }, 5000);
+        }
+
+        function showLoading() {
+            const resultsSection = document.getElementById('resultsSection');
+            resultsSection.innerHTML = '<div class="loading"><div class="spinner"></div><p>データを分析中...</p></div>';
+            resultsSection.style.display = 'block';
+        }
+
+        function hideLoading() {
+            // Loading state is replaced by results
+        }
+    </script>
+</body>
+</html>
