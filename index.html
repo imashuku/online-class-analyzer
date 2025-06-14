@@ -667,8 +667,36 @@
                 html += '</div></div>';
             }
 
+            html += '<div class="result-card">';
+            html += '<h3>✅ 出席達成学生（75分以上 & 16:35以前入室）</h3>';
+            html += '<div class="success"><strong>出席達成条件:</strong><br>・のべ在室時間75分以上<br>・16:35以前に初回入室</div>';
+            html += '<div class="student-list">';
+            const attendingStudentsList = analysis.allStudents.filter(function(s) { 
+                return s.meetsThreshold && !s.isLateJoiner; 
+            }).sort(function(a, b) { 
+                return b.totalDuration - a.totalDuration; 
+            });
+            
+            if (attendingStudentsList.length === 0) {
+                html += '<div class="student-item"><div class="student-details">該当学生なし</div></div>';
+            } else {
+                attendingStudentsList.forEach(function(student, index) {
+                    html += '<div class="student-item">';
+                    html += '<div>';
+                    html += '<div class="student-name">' + (index + 1) + '. ' + student.displayName + ' (' + student.studentId + ')</div>';
+                    html += '<div class="student-details">';
+                    html += 'メール: ' + student.email + '<br>';
+                    html += '初回入室: ' + student.firstJoinTime + ' | のべ在室時間: ' + student.totalDuration + '分 (' + student.sessionCount + '回入退室)';
+                    if (student.allNames.length > 1) {
+                        html += '<br>使用した名前: ' + student.allNames.join(', ');
+                    }
+                    html += '</div></div></div>';
+                });
+            }
+
             html += '<div class="export-buttons">';
-            html += '<button class="export-button" onclick="exportToCSV()">📊 CSV出力</button>';
+            html += '<button class="export-button" onclick="exportToCSV()">📊 要フォロー学生CSV</button>';
+            html += '<button class="export-button" onclick="exportAttendingStudents()">✅ 出席達成学生CSV</button>';
             html += '<button class="export-button" onclick="generateReport()">📄 レポート生成</button>';
             html += '</div>';
 
@@ -813,7 +841,16 @@
                 return;
             }
             const csvContent = generateCSVContent(window.currentAnalysis);
-            downloadFile(csvContent, 'attendance_analysis.csv', 'text/csv');
+            downloadFile(csvContent, 'attendance_follow_up_students.csv', 'text/csv');
+        }
+
+        function exportAttendingStudents() {
+            if (!window.currentAnalysis) {
+                showMessage('分析結果がありません。先にデータを分析してください。', 'error');
+                return;
+            }
+            const csvContent = generateAttendingStudentsCSV(window.currentAnalysis);
+            downloadFile(csvContent, 'attendance_successful_students.csv', 'text/csv');
         }
 
         function generateReport() {
@@ -850,7 +887,34 @@
             }).join('\n');
         }
 
-        function generateReportContent(analysis) {
+        function generateAttendingStudentsCSV(analysis) {
+            const headers = ['学籍番号', '表示名', 'メールアドレス', '初回入室時刻', 'のべ在室時間（分）', '入退室回数', '出席状況', '使用した全ての名前'];
+            
+            // 出席達成学生（75分以上 & 16:35以前入室）
+            const attendingStudents = analysis.allStudents.filter(function(s) { 
+                return s.meetsThreshold && !s.isLateJoiner; 
+            }).sort(function(a, b) { 
+                return b.totalDuration - a.totalDuration; 
+            });
+            
+            const rows = attendingStudents.map(function(student) {
+                return [
+                    student.studentId,
+                    student.displayName,
+                    student.email,
+                    student.firstJoinTime,
+                    student.totalDuration,
+                    student.sessionCount,
+                    '出席達成',
+                    student.allNames.join(' / ')
+                ];
+            });
+
+            const csvData = [headers].concat(rows);
+            return csvData.map(function(row) {
+                return row.join(',');
+            }).join('\n');
+        }
             const date = new Date().toLocaleDateString('ja-JP');
             let report = 'オンライン授業参加状況分析レポート\n';
             report += '生成日時: ' + date + '\n\n';
